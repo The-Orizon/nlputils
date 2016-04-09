@@ -58,8 +58,6 @@ ucjk = frozenset(itertools.chain(
     range(0x20000, 0x2FFFF + 1)
 ))
 
-hasucjk = lambda l: any((ord(i) in ucjk) for i in l)
-
 zhmodel = None
 _curpath = os.path.normpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -73,9 +71,13 @@ RE_FW = re.compile(
 RE_UCJK = re.compile(
     '([\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0002A6D6]+)')
 
-# Detokenization function for Chinese.
-detokenize = lambda s: RE_WS_IN_FW.sub(r'\1', s).strip()
+RE_CTRL = re.compile("[\000-\037\ufeff]+")
 
+hasucjk = lambda s: RE_UCJK.search(s)
+removectrl = lambda s: RE_CTRL.sub('', s)
+
+detokenize = lambda s: RE_WS_IN_FW.sub(r'\1', s).strip()
+detokenize.__doc__ = 'Detokenization function for Chinese.'
 
 def splitsentence(sentence):
     '''Split a piece of Chinese into sentences.'''
