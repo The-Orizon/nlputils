@@ -58,6 +58,8 @@ ucjk = frozenset(itertools.chain(
     range(0x20000, 0x2FFFF + 1)
 ))
 
+hasucjk = lambda l: any((ord(i) in ucjk) for i in l)
+
 zhmodel = None
 _curpath = os.path.normpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
