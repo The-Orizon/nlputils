@@ -6,6 +6,7 @@ import sys
 import zhconv
 import zhutil
 import argparse
+import multiprocessing
 from chardet.universaldetector import UniversalDetector
 
 def listfiles(paths):
@@ -29,7 +30,31 @@ def convertfunc(s, locale):
     else:
         return lambda x: x
 
-def main():
+def detect_convert(filename):
+    detector = UniversalDetector()
+    detector.reset()
+    cache = b''
+    with open(filename, 'rb') as f:
+        for line in f:
+            detector.feed(line)
+            cache += line
+            if detector.done:
+                break
+        detector.close()
+        cache = cache.decode(
+            detector.result['encoding'] or args.fallback_enc,
+            errors='ignore')
+        cf = convertfunc(cache, args.locale)
+        yield cf(cache)
+        for line in f:
+            yield cf(line.decode(
+                detector.result['encoding'] or args.fallback_enc,
+                errors='ignore'))
+
+def detect_convert_str(filename):
+    return zhutil.fw2hw(''.join(detect_convert(filename)))
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Merge a txt file collection to one large corpus.")
     #parser.add_argument(
@@ -44,34 +69,12 @@ def main():
     parser.add_argument("-o", metavar='FILE', help="output file")
     parser.add_argument("PATH", default='.', nargs='*', help="input path (can be directory)")
     args = parser.parse_args()
-
+    pool = multiprocessing.Pool()
     if args.o:
         wstream = open(args.o, 'w', encoding='utf-8')
     else:
         wstream = sys.stdout
+    files = [fn for fn in listfiles(args.PATH) if fn.endswith('.txt')]
     with wstream:
-        detector = UniversalDetector()
-        for filename in listfiles(args.PATH):
-            if not filename.endswith('.txt'):
-                continue
-            detector.reset()
-            cache = b''
-            with open(filename, 'rb') as f:
-                for line in f:
-                    detector.feed(line)
-                    cache += line
-                    if detector.done:
-                        break
-                detector.close()
-                cache = cache.decode(
-                    detector.result['encoding'] or args.fallback_enc,
-                    errors='ignore')
-                cf = convertfunc(cache, args.locale)
-                wstream.write(cf(cache))
-                for line in f:
-                    wstream.write(cf(line.decode(
-                        detector.result['encoding'] or args.fallback_enc,
-                        errors='ignore')))
-
-if __name__ == '__main__':
-    main()
+        for r in pool.imap_unordered(detect_convert_str, files):
+            wstream.write(r)
