@@ -135,7 +135,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '-1':
         func = map
     else:
-        pool = multiprocessing.Pool(1)
-        func = pool.imap_unordered    
+        pool = multiprocessing.Pool()
+        func = lambda fn, it: pool.imap_unordered(fn, it, 256)
     for _ in func(process_line, sys.stdin):
         pass
