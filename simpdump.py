@@ -16,7 +16,7 @@ Format: username <TAB> email <TAB> password <TAB> md5
 
 md5hash = lambda s: hashlib.md5(s.encode('utf-8')).hexdigest()
 
-seperators = ('----', '\t|\t', '\t', '|', ',', None)
+seperators = ('\t', '----', '|', ',', None)
 
 #templates = (
 #('password',),
@@ -41,15 +41,14 @@ remove_str = (
 #invalid_username = frozenset((u"用户组&emsp;:<span class='gray'>平民 (-1) ",))
 
 re_whitespace = re.compile('[\t ]+')
-re_password = re.compile('^[ -~]{6,}$')
-re_username_ext = re.compile(r'^\S{2,}$', re.U)
+re_password = re.compile('^[ -~]{6,64}$')
+re_username_ext = re.compile(r'^\S{2,64}$', re.U)
 
 re_formats = collections.OrderedDict((
     ('email', re.compile('^[A-Za-z0-9._-]+@[A-Za-z0-9-]+\.[A-Za-z0-9.-]{2,}$')),
     ('md5', re.compile('^[A-Fa-f0-9]{32}$')),
-    ('username', re.compile(r'^[\w.]{2,}$')),
+    ('username', re.compile(r'^[\w.]{2,64}$')),
     ('password', re_password),
-    #('username_ext', re.compile(r"^\S+$", re.U))
     (None, None) # catch all username/nickname
 ))
 
@@ -81,12 +80,11 @@ def try_formats(s):
             for f in fields:
                 for ftype, regex in flist.items():
                     if ftype:
+                        if ftype != 'password':
+                            f = f.strip()
                         if regex.match(f):
                             fields_got[ftype] = f
                             break
-                    elif sep:
-                        fields_got['username'] = f
-                        break
                     elif re_username_ext.match(f):
                         fields_got['username'] = f
                         break
@@ -129,7 +127,7 @@ def process_line(l):
     r = try_formats(sanitize(l))
     #print(r)
     if r:
-        return '\t'.join(process_result(r)).encode('utf-8')
+        return u'\t'.join(process_result(r)).encode('utf-8')
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '-1':
@@ -138,4 +136,5 @@ if __name__ == '__main__':
         pool = multiprocessing.Pool()
         func = lambda fn, it: pool.imap_unordered(fn, it, 256)
     for result in func(process_line, sys.stdin):
-        print(result)
+        if result:
+            print(result)
