@@ -111,7 +111,7 @@ def try_formats(s):
 def process_result(r):
     password = r.get('password', '')
     md5 = r.get('md5', '').lower()
-    username = r.get('username', '')
+    username = r.get('username', '').strip()
     email = r.get('email', '').lstrip('-')
     if password and md5:
         if md5hash(password) == md5:
@@ -129,7 +129,7 @@ def process_line(l):
     r = try_formats(sanitize(l))
     #print(r)
     if r:
-        print('\t'.join(process_result(r)).encode('utf-8'))
+        return '\t'.join(process_result(r)).encode('utf-8')
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '-1':
@@ -137,5 +137,5 @@ if __name__ == '__main__':
     else:
         pool = multiprocessing.Pool()
         func = lambda fn, it: pool.imap_unordered(fn, it, 256)
-    for _ in func(process_line, sys.stdin):
-        pass
+    for result in func(process_line, sys.stdin):
+        print(result)
