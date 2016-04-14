@@ -20,7 +20,7 @@ cur.execute('CREATE TABLE IF NOT EXISTS records ('
 def update_records(stream, debug=False):
     for ln in stream:
         try:
-            fields = ln.rstrip(b'\n').decode('utf-8').split('\t')
+            fields = ln.rstrip(b'\n').decode('utf-8', errors='ignore').split('\t')
             if not any(fields):
                 continue
             username = fields[0].strip()
@@ -30,8 +30,8 @@ def update_records(stream, debug=False):
             if not debug:
                 cur.execute('INSERT INTO records VALUES (?,?,?,?)',
                             (username, email, password, md5))
-        except Exception:
-            print(fields)
+        except Exception as ex:
+            print(repr(ex), repr(ln))
     db.commit()
 
 def update_md5(stream):
