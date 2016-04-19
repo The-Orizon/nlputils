@@ -38,7 +38,7 @@ def update_md5(stream):
     for ln in stream:
         ln = ln.rstrip(b'\n')
         md5 = hashlib.md5(ln).digest()
-        cur.execute('UPDATE users SET password=?, md5=? WHERE md5=?',
+        cur.execute('UPDATE records SET password=?, md5=? WHERE md5=?',
                     (ln, b'', md5))
     db.commit()
 
