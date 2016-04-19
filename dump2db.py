@@ -32,29 +32,33 @@ def update_records(stream, debug=False):
                             (username, email, password, md5))
         except Exception as ex:
             print(repr(ex), repr(ln))
-    db.commit()
 
 def update_md5(stream):
+    md5s = set()
+    for row in cur.execute('SELECT DISTINCT md5 FROM records WHERE md5 IS NOT NULL'):
+        md5s.add(row[0])
     for ln in stream:
         ln = ln.rstrip(b'\n')
         md5 = hashlib.md5(ln).digest()
-        cur.execute('UPDATE records SET password=?, md5=? WHERE md5=?',
-                    (ln, b'', md5))
-    db.commit()
+        if md5 in md5s:
+            cur.execute('UPDATE records SET password=?, md5=? WHERE md5=?',
+                        (ln, b'', md5))
 
 def vacuum():
     cur.execute('DELETE FROM records WHERE rowid NOT IN (SELECT MIN(RowId) FROM records GROUP BY username, email, password, md5)')
     cur.execute('VACUUM')
-    db.commit()
 
-if len(sys.argv) > 1:
-    if sys.argv[1] == '-p':
-        update_md5(sys.stdin.buffer)
-    elif sys.argv[1] == '-v':
-        vacuum()
-    elif sys.argv[1] == '-d':
-        update_records(sys.stdin.buffer, debug=True)
+try:
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '-p':
+            update_md5(sys.stdin.buffer)
+        elif sys.argv[1] == '-v':
+            vacuum()
+        elif sys.argv[1] == '-d':
+            update_records(sys.stdin.buffer, debug=True)
+        else:
+            print('unrecognized arguments')
     else:
-        print('unrecognized arguments')
-else:
-    update_records(sys.stdin.buffer)
+        update_records(sys.stdin.buffer)
+finally:
+    db.commit()
