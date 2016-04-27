@@ -16,6 +16,7 @@ cur.execute('CREATE TABLE IF NOT EXISTS records ('
     'password TEXT,'
     'md5 BLOB'
 ')')
+cur.execute('CREATE INDEX IF NOT EXISTS md5_index ON records (md5)')
 
 def update_records(stream, debug=False):
     for ln in stream:

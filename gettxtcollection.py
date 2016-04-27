@@ -23,7 +23,7 @@ def convertfunc(s, locale):
         simp = zhconv.issimp(s, True)
         if (simp is None
             or simp and locale in zhconv.Locales['zh-hans']
-            or locale in zhconv.Locales['zh-hant']):
+            or not simp and locale in zhconv.Locales['zh-hant']):
             return lambda x: x
         else:
             return lambda x: zhconv.convert(s, locale)
@@ -44,15 +44,14 @@ def detect_convert(filename):
         cache = cache.decode(
             detector.result['encoding'] or args.fallback_enc,
             errors='ignore')
+        cache += f.read().decode(
+            detector.result['encoding'] or args.fallback_enc,
+            errors='ignore')
         cf = convertfunc(cache, args.locale)
-        yield cf(cache)
-        for line in f:
-            yield cf(line.decode(
-                detector.result['encoding'] or args.fallback_enc,
-                errors='ignore'))
+        return cf(cache)
 
 def detect_convert_str(filename):
-    return zhutil.fw2hw(''.join(detect_convert(filename)))
+    return zhutil.fw2hw(detect_convert(filename))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
