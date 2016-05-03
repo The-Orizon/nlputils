@@ -5,11 +5,11 @@ import struct
 
 class PdbFile:
 
-    charmap = str.maketrans(
+    charmap_h = str.maketrans(
         '︿﹀︽︾﹁﹂﹃﹄︻︼︗︘︹︺︵︶︷︸﹇﹈｜│︙￤ⸯ',
         '〈〉《》「」『』【】〖〗〔〕（）｛｝［］—………～'
     )
-    charmap_rev = str.maketrans(
+    charmap_v = str.maketrans(
         '"\'()-—‘’“”…〈〉《》「」『』【】〔〕（）｛｝',
         '﹁﹃︵︶｜｜﹃﹄﹁﹂│︿﹀︽︾﹁﹂﹃﹄︻︼︹︺︵︶︷︸'
     )
@@ -21,13 +21,11 @@ class PdbFile:
         self.text = []
         self.bookmarks = None
         if filename:
-            self.load(filename, fixpunct)
-
-    def load(self, filename, fixpunct=False):
+            self.load(filename)
         if fixpunct:
-            charmap = self.charmap
-        else:
-            charmap = {}
+            self.punct_convert(False)
+
+    def load(self, filename):
         with open(filename, 'rb') as f:
             header = f.read(78)
             if header[60:68] == b'BOOKMTIT':
@@ -53,8 +51,7 @@ class PdbFile:
                 val = f.read(length)
                 if k:
                     if length:
-                        self.text.append(val.decode(encoding,
-                            'replace').translate(charmap).rstrip('\0'))
+                        self.text.append(val.decode(encoding, 'replace').rstrip('\0'))
                     else:
                         try:
                             self.bookmarks = list(struct.unpack(
@@ -63,32 +60,37 @@ class PdbFile:
                             pass
                 elif encoding == 'cp950':
                     title, other = val[8:].split(b'\x1B\x1B\x1B', 1)
-                    self.title = title.decode(encoding, 'replace').translate(charmap)
+                    self.title = title.decode(encoding, 'replace')
                     chapternum, chapters = other.split(b'\x1B', 1)
                     chapternum = int(chapternum.decode('ascii'))
-                    self.contents = chapters.decode(encoding,
-                        'replace').translate(charmap).split('\x1B')
+                    self.contents = chapters.decode(encoding, 'replace').split('\x1B')
                 else:
                     title, other = val[8:].split(b'\x1B\x00\x1B\x00\x1B\x00', 1)
-                    self.title = title.decode(encoding, 'replace').translate(charmap)
+                    self.title = title.decode(encoding, 'replace')
                     chapternum, chapters = other.split(b'\x1B\x00', 1)
                     chapternum = int(chapternum.decode('ascii'))
-                    self.contents = chapters.decode(encoding,
-                        'replace').translate(charmap).split('\r\n')
-            assert chapternum == len(self.contents)
+                    self.contents = chapters.decode(encoding, 'replace').split('\r\n')
+            # len(self.contents) may be less than chapter number
+            assert recordnum-2 == chapternum == len(self.text)
 
-    def dump(self, filename, big5=False, fixpunct=False):
-        if fixpunct:
-            charmap = self.charmap_rev
+    def punct_convert(self, tovertical=False):
+        if tovertical:
+            charmap = self.charmap_v
         else:
-            charmap = {}
+            charmap = self.charmap_h
+        self.title = self.title.translate(charmap)
+        if self.author:
+            self.author = self.author.translate(charmap)
+        self.contents = [s.translate(charmap) for s in self.contents]
+        self.text = [s.translate(charmap) for s in self.text]
+
+    def dump(self, filename, big5=False):
         with open(filename, 'wb') as f:
             encoding = 'cp950' if big5 else 'utf_16_le'
             if self.author:
                 f.write(self.author.encode(encoding, 'replace').ljust(35, b'\0') + b'\2')
             else:
-                f.write(self.title.translate(charmap).encode(encoding,
-                        'replace').ljust(35, b'\0') + b'\1')
+                f.write(self.title.encode(encoding, 'replace').ljust(35, b'\0') + b'\1')
             f.write(b'\x3B\x29\x9B\xE5\x3B\x29\x9B\xE5' + b'\0'*16)
             if big5:
                 f.write(b'BOOKMTIT')
@@ -101,18 +103,15 @@ class PdbFile:
             f.write(b'\0'*(recordnum*8))
             positions = [f.tell()]
             f.write(b' '*8)
-            f.write((self.title.translate(charmap) +
-                    '\x1B\x1B\x1B').encode(encoding, 'replace'))
+            f.write((self.title + '\x1B\x1B\x1B').encode(encoding, 'replace'))
             f.write(str(len(self.text)).encode('ascii'))
             if big5:
-                f.write(('\x1B' + '\x1B'.join(self.contents).translate(charmap)
-                        ).encode(encoding, 'replace'))
+                f.write(('\x1B' + '\x1B'.join(self.contents)).encode(encoding, 'replace'))
             else:
-                f.write(('\x1B' + '\r\n'.join(self.contents).translate(charmap)
-                        ).encode(encoding, 'replace'))
+                f.write(('\x1B' + '\r\n'.join(self.contents)).encode(encoding, 'replace'))
             positions.append(f.tell())
             for chapter in self.text:
-                f.write(chapter.translate(charmap).encode(encoding, 'replace'))
+                f.write(chapter.encode(encoding, 'replace'))
                 if big5:
                     f.write(b'\0')
                 positions.append(f.tell())
