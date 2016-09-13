@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''
+Convert GBK PUA codes to corresponding Unicode codepoints.
+
+This program is free software. It comes without any warranty, to
+the extent permitted by applicable law. You can redistribute it
+and/or modify it under the terms of the Do What The Fuck You Want
+To Public License, Version 2, as published by Sam Hocevar. See
+http://www.wtfpl.net/ for more details.
+'''
+
 gbk_table = str.maketrans((
     '\ue7c7\ue7c8\ue7e7\ue7e8\ue7e9\ue7ea\ue7eb\ue7ec\ue7ed\ue7ee\ue7ef\ue7f0'
     '\ue815\ue816\ue817\ue818\ue819\ue81a\ue81b\ue81c\ue81d\ue81e'
