@@ -46,17 +46,21 @@ def translate_bopomofo(pinyin):
         out = f.sub(r, out)
     return out.translate(bopomofo_table)
 
-tone_num = re.compile('([^0-9]+)([^0-9])([^0-9]*)')
-def tone2_move(m):
-    return m.group(0) + m.group(2) + m.group(1)
+tone_num = re.compile('^([a-z]+)([0-4])([a-z]*)$')
 
 def translate_bopomofo_tone2(syllable):
-    return translate_bopomofo(tone_num.sub(tone2_move, syllable))
+    match = tone_num.match(syllable)
+    if match:
+        return translate_bopomofo(match.expand(r'\1\3\2').replace('0', '5'))
+    else:
+        return syllable
 
 def pinyin_bopomofo_factory(pinyin):
     def f(han, style, heteronym, errors='default'):
         if style == STYLE_BOPOMOFO:
-            return map(translate_bopomofo_tone2, pinyin(han, 2, heteronym))
+            # FIXME: this can't cover all error handling methods
+            # we should directly patch pypinyin
+            return list(map(translate_bopomofo_tone2, pinyin(han, 2, heteronym, errors)))
         else:
-            return pinyin(han, style, heteronym)
+            return pinyin(han, style, heteronym, errors)
     return f
