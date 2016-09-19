@@ -12,7 +12,9 @@ http://www.wtfpl.net/ for more details.
 '''
 
 gbk_table = str.maketrans((
-    '\ue7c7\ue7c8\ue7e7\ue7e8\ue7e9\ue7ea\ue7eb\ue7ec\ue7ed\ue7ee\ue7ef\ue7f0'
+    '\ue78d\ue78e\ue78f\ue790\ue791\ue792\ue793\ue794\ue795\ue7c7'
+    '\ue7c8\ue7e7\ue7e8\ue7e9\ue7ea\ue7eb\ue7ec\ue7ed\ue7ee\ue7ef'
+    '\ue7f0\ue7f1\ue7f2\uf7f3'
     '\ue815\ue816\ue817\ue818\ue819\ue81a\ue81b\ue81c\ue81d\ue81e'
     '\ue81f\ue820\ue821\ue822\ue823\ue824\ue825\ue826\ue827\ue828'
     '\ue829\ue82a\ue82b\ue82c\ue82d\ue82e\ue82f\ue830\ue831\ue832'
@@ -21,7 +23,7 @@ gbk_table = str.maketrans((
     '\ue847\ue848\ue849\ue84a\ue84b\ue84c\ue84d\ue84e\ue84f\ue850'
     '\ue851\ue852\ue853\ue854\ue855\ue856\ue857\ue858\ue859\ue85a'
     '\ue85b\ue85c\ue85d\ue85e\ue85f\ue860\ue861\ue862\ue863\ue864'), (
-    'ḿǹ〾⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻'
+    '︐︒︑︓︔︕︖︗︘ḿǹ〾⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻' # ，。、：；！？〖〗
     '⺁𠂇𠂉𠃌⺄㑳㑇⺈⺋龴㖞㘚㘎⺌⺗㥮㤘龵㧏㧟㩳㧐龶龷㭎㱮㳠⺧𡗗龸⺪䁖䅟⺮䌷⺳'
     '⺶⺷𢦏䎱䎬⺻䏝䓖䙡䙌龹䜣䜩䝼䞍⻊䥇䥺䥽䦂䦃䦅䦆䦟䦛䦷䦶龺𤇾䲣䲟䲠䲡䱷䲢䴓'
     '䴔䴕䴖䴗䴘䴙䶮龻'
