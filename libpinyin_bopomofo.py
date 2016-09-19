@@ -3,6 +3,8 @@
 """
 Decorators around methods for potential monkey-patching -- I am tooooo
 lazy to do anything else now.
+
+License: WTFPL -- You just DO WHAT THE FUCK YOU WANT TO.
 """
 from __future__ import unicode_literals
 import re
