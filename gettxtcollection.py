@@ -9,6 +9,9 @@ import argparse
 import multiprocessing
 from chardet.universaldetector import UniversalDetector
 
+identity = lambda x: x
+empty = lambda x: ''
+
 def listfiles(paths):
     for path in paths:
         if os.path.isfile(path):
@@ -18,17 +21,19 @@ def listfiles(paths):
                 for name in files:
                     yield os.path.join(root, name)
 
-def convertfunc(s, locale):
+def convertfunc(s, locale, locale_only):
     if locale:
         simp = zhconv.issimp(s, True)
         if (simp is None
             or simp and locale in zhconv.Locales['zh-hans']
             or not simp and locale in zhconv.Locales['zh-hant']):
-            return lambda x: x
+            return identity
+        elif locale_only:
+            return empty
         else:
             return lambda x: zhconv.convert(s, locale)
     else:
-        return lambda x: x
+        return identity
 
 def detect_convert(filename):
     detector = UniversalDetector()
@@ -47,7 +52,7 @@ def detect_convert(filename):
         cache += f.read().decode(
             detector.result['encoding'] or args.fallback_enc,
             errors='ignore')
-        cf = convertfunc(cache, args.locale)
+        cf = convertfunc(cache, args.locale, args.locale_only)
         return cf(cache)
 
 def detect_convert_str(filename):
@@ -65,6 +70,8 @@ if __name__ == '__main__':
     parser.add_argument(
         "-l", "--locale",
         help="Chinese variant conversion (default: no conversion)")
+    parser.add_argument("-L", "--locale-only", action="store_true",
+        help="only output text in specified --locale, don't convert")
     parser.add_argument("-o", metavar='FILE', help="output file")
     parser.add_argument("PATH", default='.', nargs='*', help="input path (can be directory)")
     args = parser.parse_args()
