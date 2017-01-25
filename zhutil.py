@@ -63,13 +63,27 @@ _curpath = os.path.normpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 RE_WS_IN_FW = re.compile(
-    r'([‘’“”…─\u2e80-\u312f\u3200-\u32ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe30-\ufe57\uff00-\uffef\U00020000-\U0002A6D6])\s+(?=[‘’“”…\u2e80-\u312f\u3200-\u32ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe30-\ufe57\uff00-\uffef\U00020000-\U0002A6D6])')
+    r'([‘’“”…─\u2e80-\u312f\u3200-\u32ff\u3400-\u4dbf\u4e00-\u9fff'
+    '\uf900-\ufaff\ufe30-\ufe57\uff00-\uffef\U00020000-\U0002A6DF'
+    '\U0002A700-\U0002B73F\U0002B740-\U0002B81F\U0002B820-\U0002CEAF'
+    '\U0002F800-\U0002FA1F])\s+(?=[‘’“”…\u2e80-\u312f\u3200-\u32ff'
+    '\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe30-\ufe57\uff00-\uffef'
+    '\U00020000-\U0002A6DF\U0002A700-\U0002B73F\U0002B740-\U0002B81F'
+    '\U0002B820-\U0002CEAF\U0002F800-\U0002FA1F])')
 
 RE_FW = re.compile(
-    '([\u2018\u2019\u201c\u201d\u2026\u2e80-\u312f\u3200-\u32ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe30-\ufe57\uff00-\uffef\U00020000-\U0002A6D6]+)')
+    '([\u2018\u2019\u201c\u201d\u2026\u2e80-\u312f\u3200-\u32ff'
+    '\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe30-\ufe57\uff00-\uffef'
+    '\U00020000-\U0002A6DF\U0002A700-\U0002B73F'
+    '\U0002B740-\U0002B81F\U0002B820-\U0002CEAF'
+    '\U0002F800-\U0002FA1F]+)')
 
 RE_UCJK = re.compile(
-    '([\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0002A6D6]+)')
+    '([\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff'
+    '\U00020000-\U0002A6DF\U0002A700-\U0002B73F'
+    '\U0002B740-\U0002B81F\U0002B820-\U0002CEAF'
+    '\U0002F800-\U0002FA1F]+)'
+)
 
 RE_CTRL = re.compile("[\000-\037\ufeff]+")
 
