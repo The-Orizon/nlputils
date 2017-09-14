@@ -19,6 +19,7 @@ import tarfile
 import sqlite3
 import calendar
 
+cstr = lambda s: None if s == '\\N' else s
 cint = lambda s: None if s == '\\N' else int(s)
 cdate = lambda s: None if s in ('\\N', '0000-00-00 00:00:00') else calendar.timegm(time.strptime(s, '%Y-%m-%d %H:%M:%S'))
 
@@ -30,6 +31,7 @@ def stream_tarfile(filename):
 print('Creating schema')
 db = sqlite3.connect('tatoeba.db')
 cur = db.cursor()
+cur.execute('PRAGMA journal_mode=WAL')
 cur.execute(
     'CREATE TABLE IF NOT EXISTS sentences ('
     'id INTEGER PRIMARY KEY,'
@@ -37,22 +39,35 @@ cur.execute(
     'text TEXT,'
     'username TEXT,'
     'date_added INTEGER,'
-    'date_modified INTEGER,'
-    'audio INTEGER'
+    'date_modified INTEGER'
 ')')
+cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_sentences_lang'
+    ' ON sentences (lang)'
+)
 cur.execute(
     'CREATE TABLE IF NOT EXISTS links ('
     'sentence INTEGER,'
     'translation INTEGER,'
+    'PRIMARY KEY (sentence, translation),'
     'FOREIGN KEY(sentence) REFERENCES sentences(id),'
     'FOREIGN KEY(translation) REFERENCES sentences(id)'
 ')')
 cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_links'
+    ' ON links (sentence)'
+)
+cur.execute(
     'CREATE TABLE IF NOT EXISTS tags ('
     'sentence INTEGER,'
     'tag TEXT,'
+    'UNIQUE (sentence, tag),'
     'FOREIGN KEY(sentence) REFERENCES sentences(id)'
 ')')
+cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_tags'
+    ' ON tags (sentence)'
+)
 cur.execute(
     'CREATE TABLE IF NOT EXISTS user_lists ('
     'id INTEGER PRIMARY KEY,'
@@ -66,24 +81,52 @@ cur.execute(
     'CREATE TABLE IF NOT EXISTS sentences_in_lists ('
     'list INTEGER,'
     'sentence INTEGER,'
+    'PRIMARY KEY (list, sentence),'
     'FOREIGN KEY(list) REFERENCES user_lists(id),'
     'FOREIGN KEY(sentence) REFERENCES sentences(id)'
 ')')
+cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_sentences_in_lists'
+    ' ON sentences_in_lists (list)'
+)
 cur.execute(
     'CREATE TABLE IF NOT EXISTS jpn_indices ('
     'sentence INTEGER,'
     'meaning INTEGER,'
     'text TEXT,'
+    'PRIMARY KEY (sentence, meaning),'
     'FOREIGN KEY(sentence) REFERENCES sentences(id),'
     'FOREIGN KEY(meaning) REFERENCES sentences(id)'
 ')')
+cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_jpn_indices'
+    ' ON jpn_indices (sentence)'
+)
+cur.execute(
+    'CREATE TABLE IF NOT EXISTS sentences_with_audio ('
+    'sentence INTEGER,'
+    'username TEXT,'
+    'license TEXT,'
+    'attribution TEXT,'
+    'UNIQUE (sentence, username),'
+    'FOREIGN KEY(sentence) REFERENCES sentences(id)'
+')')
+cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_sentences_with_audio'
+    ' ON sentences_with_audio (sentence)'
+)
 cur.execute(
     'CREATE TABLE IF NOT EXISTS user_languages ('
     'lang TEXT,'
     'skill INTEGER,'
     'username TEXT,'
-    'details TEXT'
+    'details TEXT,'
+    'UNIQUE (lang, username)'
 ')')
+cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_user_languages'
+    ' ON user_languages (username)'
+)
 cur.execute(
     'CREATE TABLE IF NOT EXISTS users_sentences ('
     'username TEXT,'
@@ -92,22 +135,33 @@ cur.execute(
     'rating INTEGER,'
     'date_added INTEGER,'
     'date_modified INTEGER,'
+    'UNIQUE (username, sentence),'
     'FOREIGN KEY(sentence) REFERENCES sentences(id)'
 ')')
+cur.execute(
+    'CREATE INDEX IF NOT EXISTS idx_users_sentences'
+    ' ON users_sentences (sentence)'
+)
 db.commit()
 
 if os.path.isfile('sentences_detailed.tar.bz2'):
     print('Importing sentences_detailed.tar.bz2')
     for ln in stream_tarfile('sentences_detailed.tar.bz2'):
         l = ln.rstrip('\n').split('\t')
-        cur.execute('REPLACE INTO sentences (id, lang, text, username, date_added, date_modified, audio) VALUES (?, ?, ?, ?, ?, ?, 0)', (int(l[0]), l[1], l[2], l[3], cdate(l[4]), cdate(l[5])))
+        cur.execute(
+            'REPLACE INTO sentences'
+            ' (id, lang, text, username, date_added, date_modified)'
+            ' VALUES (?, ?, ?, ?, ?, ?)',
+            (int(l[0]), l[1], l[2], cstr(l[3]), cdate(l[4]), cdate(l[5]))
+        )
     db.commit()
 elif os.path.isfile('sentences.tar.bz2'):
     print('sentences_detailed.tar.bz2 not found.')
     print('Importing sentences.tar.bz2')
     for ln in stream_tarfile('sentences.tar.bz2'):
         l = ln.rstrip('\n').split('\t')
-        cur.execute('INSERT OR IGNORE INTO sentences (id, lang, text, audio) VALUES (?, ?, ?, 0)', (int(l[0]), l[1], l[2]))
+        cur.execute('INSERT OR IGNORE INTO sentences '
+            '(id, lang, text) VALUES (?, ?, ?)', (int(l[0]), l[1], l[2]))
     db.commit()
 else:
     print('sentences_detailed.tar.bz2 or sentences.tar.bz2 not found.')
@@ -128,24 +182,29 @@ if os.path.isfile('user_lists.tar.bz2'):
     print('Importing user_lists.tar.bz2')
     for ln in stream_tarfile('user_lists.tar.bz2'):
         l = ln.rstrip('\n').split('\t')
-        cur.execute('REPLACE INTO user_lists VALUES (?, ?, ?, ?, ?, ?)', (int(l[0]), l[1], cdate(l[2]), cdate(l[3]), l[4], l[5]))
+        cur.execute('REPLACE INTO user_lists VALUES (?, ?, ?, ?, ?, ?)',
+                    (int(l[0]), l[1], cdate(l[2]), cdate(l[3]), l[4], l[5]))
     db.commit()
 if os.path.isfile('sentences_in_lists.tar.bz2'):
     print('Importing sentences_in_lists.tar.bz2')
     for ln in stream_tarfile('sentences_in_lists.tar.bz2'):
         l = ln.rstrip('\n').split('\t')
-        cur.execute('REPLACE INTO sentences_in_lists VALUES (?, ?)', (int(l[0]), int(l[1])))
+        cur.execute('REPLACE INTO sentences_in_lists VALUES (?, ?)',
+                    (int(l[0]), int(l[1])))
     db.commit()
 if os.path.isfile('jpn_indices.tar.bz2'):
     print('Importing jpn_indices.tar.bz2')
     for ln in stream_tarfile('jpn_indices.tar.bz2'):
         l = ln.rstrip('\n').split('\t')
-        cur.execute('REPLACE INTO jpn_indices VALUES (?, ?, ?)', (int(l[0]), int(l[1]), l[2]))
+        cur.execute('REPLACE INTO jpn_indices VALUES (?, ?, ?)',
+                    (int(l[0]), int(l[1]), l[2]))
     db.commit()
 if os.path.isfile('sentences_with_audio.tar.bz2'):
     print('Importing sentences_with_audio.tar.bz2')
     for ln in stream_tarfile('sentences_with_audio.tar.bz2'):
-        cur.execute('UPDATE OR IGNORE sentences SET audio = 1 WHERE id = ?', (int(ln.strip()),))
+        l = ln.rstrip('\n').split('\t')
+        cur.execute('REPLACE INTO sentences_with_audio VALUES (?, ?, ?, ?)',
+                    (int(l[0]), cstr(l[1]), cstr(l[2]), cstr(l[3])))
     db.commit()
 if os.path.isfile('user_languages.tar.bz2'):
     print('Importing user_languages.tar.bz2')
@@ -157,23 +216,28 @@ if os.path.isfile('user_languages.tar.bz2'):
                 last_detail += ln[:-1] + '\n'
             else:
                 l = ln.split('\t')
-                last_line = (l[0], cint(l[1]), l[2])
+                last_line = (l[0], cint(l[1]), cstr(l[2]))
                 last_detail = l[-1][:-1] + '\n'
         elif last_detail:
             cur.execute('REPLACE INTO user_languages VALUES (?, ?, ?, ?)', last_line + (last_detail + ln,))
             last_line = last_detail = None
         else:
             l = ln.split('\t')
-            cur.execute('REPLACE INTO user_languages VALUES (?, ?, ?, ?)', (l[0], cint(l[1]), l[2], l[3]))
+            cur.execute('REPLACE INTO user_languages VALUES (?, ?, ?, ?)',
+                        (l[0], cint(l[1]), cstr(l[2]), l[3]))
     if last_detail:
-        cur.execute('REPLACE INTO user_languages VALUES (?, ?, ?, ?)', last_line + (last_detail,))
+        cur.execute('REPLACE INTO user_languages VALUES (?, ?, ?, ?)',
+                    last_line + (last_detail,))
     db.commit()
 if os.path.isfile('users_sentences.csv'):
     print('Importing users_sentences.csv')
     with open('users_sentences.csv', 'r', encoding='utf-8') as f:
         for ln in f:
             l = ln.rstrip('\n').split('\t')
-            cur.execute('REPLACE INTO users_sentences VALUES (?, ?, ?, ?, ?)', (l[0], int(l[1]), int(l[2]), cdate(l[3]), cdate(l[4])))
+            cur.execute('REPLACE INTO users_sentences VALUES (?, ?, ?, ?, ?)',
+                        (l[0], int(l[1]), int(l[2]), cdate(l[3]), cdate(l[4])))
     db.commit()
+cur.execute('PRAGMA optimize')
 cur.execute('VACUUM')
+db.commit()
 print('Done.')
