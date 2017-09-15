@@ -20,8 +20,9 @@ HEADERS = {
 logging.basicConfig(stream=sys.stderr, format='%(asctime)s [%(levelname)s] %(message)s', level=logging.INFO)
 
 re_title = re.compile('(.+?)[【《](.+)[》】]')
-re_script = re.compile(r'SetTitle\("(.+?)[【《](.+)[》】]"\).+\nSetLink\(\'<a href=.+>(\w+)( 書目)?</a>\'\)')
-re_script2 = re.compile(r'(\w+) 書目')
+re_script = re.compile(r'SetTitle\("(.+?)[【《](.+)[》】]"\).+\nSetLink\(\'<a href=.+>(\w+)( +書目)?</a>\'\)')
+re_script2 = re.compile(r'(\w+) +書目')
+re_scriptlink = re.compile(r'<a href="([^"]+)">.+?</a>')
 re_onclick = re.compile(r"(\w+)\('([^']+)'.*\)")
 
 class HaodooCrawler:
@@ -39,6 +40,10 @@ class HaodooCrawler:
             'url TEXT PRIMARY KEY,'
             'updated INTEGER'
         ')')
+        cur.execute(
+            'CREATE INDEX IF NOT EXISTS idx_links '
+            'ON links (updated)'
+        )
         cur.execute('CREATE TABLE IF NOT EXISTS books ('
             'id TEXT PRIMARY KEY,'
             'series TEXT,'
@@ -52,6 +57,16 @@ class HaodooCrawler:
             'bookid TEXT'
         ')')
 
+    def process_href(self, link):
+        l = link.replace('\r', '').replace('\n', '').split('#')[0]
+        if l and l[0] == '?':
+            try:
+                if urllib.parse.parse_qs(l[1:])['M'][0] not in 'mu':
+                    return l
+            except Exception:
+                return l
+        return None
+
     def process_page(self, url, realurl=None):
         r = self.session.get(realurl or urllib.parse.urljoin(self.root, url))
         date = int(time.time())
@@ -62,16 +77,18 @@ class HaodooCrawler:
         soup = BeautifulSoup(r.content, 'lxml')
         links = []
         for a in soup.find_all('a'):
-            l = a.get('href', '').replace('\r', '').replace('\n', '').split('#')[0]
-            if l and l[0] == '?':
-                try:
-                    if urllib.parse.parse_qs(l[1:])['M'][0] not in 'mu':
-                        links.append(l)
-                except Exception:
+            l = self.process_href(a.get('href', ''))
+            if l:
+                links.append(l)
+        for script in soup.find_all('script'):
+            for match in re_scriptlink.finditer(script.string or ''):
+                l = self.process_href(match.group(1))
+                if l:
                     links.append(l)
-        forms = soup.find_all('form', attrs={"name": "Book"})
+        button = soup.find('input', attrs={"type": "button", "value": "線上閱讀"})
+        form = button.parent if button else None
         category = None
-        if forms:
+        if form:
             script = soup.find('script', string=re.compile("SetTitle|Set.+Navigation"))
             if script:
                 sc = script.string.strip()
@@ -93,10 +110,12 @@ class HaodooCrawler:
             else:
                 logging.warning('%s: <script> not found', url)
         books, files = [], []
-        for form in forms:
+        if form:
             author, title, bookid = None, None, None
             for element in form.find_all():
                 if element.name == 'font' and element.get('color') == 'CC0000':
+                    if element.get('size') == '2':
+                        continue
                     if author:
                         books.append((bookid, series, title, author, category))
                     author = (element.string or '').strip()
