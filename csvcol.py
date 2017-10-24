@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+import io
 import csv
 import sys
 import codecs
@@ -93,18 +94,21 @@ def main():
     fg = fieldgetter(args.fields)
     if args.quoting != 'text':
         writer = csv.writer(
-            sys.stdout, dialect, quoting=QUOTING[args.quoting], **out_override)
+            io.TextIOWrapper(sys.stdout.buffer, encoding='latin1'),
+            dialect, quoting=QUOTING[args.quoting], **out_override)
     else:
-        out_delimeter = out_override.get('delimiter', dialect.delimiter)
-        out_lineterminator = out_override.get('lineterminator', dialect.lineterminator)
+        out_delimeter = out_override.get('delimiter', dialect.delimiter).encode('latin1')
+        out_lineterminator = out_override.get('lineterminator', dialect.lineterminator).encode('latin1')
     for filename in (args.file or ['-']):
-        with (open(filename, newline='') if filename != '-' else sys.stdin) as f:
+        with (open(filename, 'rb') if filename != '-'
+              else sys.stdin.buffer) as fb:
+            f = io.TextIOWrapper(fb, encoding='latin1', newline='')
             reader = csv.reader(f, dialect)
             if args.remove_header:
                 next(reader)
             if args.quoting == 'text':
                 for row in reader:
-                    sys.stdout.write(out_delimeter.join(fg(row)) + out_lineterminator)
+                    sys.stdout.buffer.write(out_delimeter.join(fg(row)) + out_lineterminator)
             else:
                 for row in reader:
                     writer.writerow(fg(row))
