@@ -27,11 +27,21 @@ re_null2 = re.compile(r'^( |-|\.|none|na|n/a)$', re.I)
 re_null3 = re.compile(r'^(|null|\\N| |-|\.|none|na|n/a)$', re.I)
 re_nonp = re.compile(r'[\000-\010\013\014\016-\037]')
 
-# SMALLINT < INTEGER < BIGINT < DECIMAL < DOUBLE < TEXT < BLOB
+geom_types = sorted((
+'POINT', 'POINT Z', 'POINT M', 'POINT ZM',
+'LINESTRING', 'LINESTRING Z', 'LINESTRING M', 'LINESTRING ZM',
+'POLYGON', 'POLYGON Z', 'POLYGON M', 'POLYGON ZM',
+'MULTIPOINT', 'MULTIPOINT Z', 'MULTIPOINT M', 'MULTIPOINT ZM',
+'MULTILINESTRING', 'MULTILINESTRING Z', 'MULTILINESTRING M', 'MULTILINESTRING ZM',
+'MULTIPOLYGON', 'MULTIPOLYGON Z', 'MULTIPOLYGON M', 'MULTIPOLYGON ZM',
+'GEOMETRYCOLLECTION', 'GEOMETRYCOLLECTION Z', 'GEOMETRYCOLLECTION ZM', 'GEOMETRYCOLLECTION ZM',
+'GEOMETRY', 'GEOMETRY Z', 'GEOMETRY M', 'GEOMETRY ZM'), key=len, reverse=1)
+
+# SMALLINT < INTEGER < BIGINT < DECIMAL < DOUBLE < GEOM < TEXT < BLOB
 # We don't detect BOOLEAN
 
 TYPES = {v:k for k, v in enumerate((
-    'SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'DOUBLE', 'TEXT', 'BLOB'))}
+    'SMALLINT', 'INTEGER', 'BIGINT', 'DECIMAL', 'DOUBLE', 'GEOM', 'TEXT', 'BLOB'))}
 
 BIGINT_MIN = -9223372036854775808
 BIGINT_MAX = 9223372036854775807
@@ -50,8 +60,26 @@ def decode_escapes(s):
 
     return ESCAPE_SEQUENCE_RE.sub(decode_match, s)
 
+def check_wkt(s):
+    gtype = dimension = None
+    s = s.upper()
+    for cmd in geom_types:
+        if s.startswith(cmd):
+            gtype_a = cmd.split(' ')
+            gtype = gtype_a[0]
+            if len(gtype_a) == 1:
+                dimension = 2
+            elif gtype_a[1] == 'Z':
+                dimension = 3
+            elif gtype_a[1] == 'ZM':
+                dimension = 4
+            else:
+                dimension = 'XY' + gtype_a[1]
+            break
+    return gtype, dimension
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate SQL definition from CSV files. Automagically determines field type.", epilog="--delimiter accepts c-style escaped string, eg. '\\t' for tabs")
+    parser = argparse.ArgumentParser(description="Generate SQL definition from CSV files. Automagically determines field type.", epilog="--delimiter accepts c-style escaped string, eg. '\\t' for tabs.\nThe generated SQL is supposed to be manually checked first.")
     parser.add_argument("-d", "--delimeter", help="A one-character string used to separate fields, defaults to ','.", default=",", metavar="CHAR")
     parser.add_argument("-e", "--escapechar", help="The escapechar removes any special meaning from the following character.", metavar="CHAR")
     parser.add_argument("-q", "--quotechar", help="A one-character string used to quote fields containing special characters.", default='"', metavar="CHAR")
@@ -61,6 +89,8 @@ def main():
     parser.add_argument("-c", "--encoding", help="CSV encoding to validate.", default='utf-8')
     parser.add_argument("-i", "--insert", help="Output inserts.", action='store_true')
     parser.add_argument("--begin", help="Command to start a transaction, defaults to BEGIN", default='BEGIN')
+    parser.add_argument("--wkt", help="Identify Geometry column (WKT) for SpatiaLite/PostGIS.", action='store_true')
+    parser.add_argument("--spindex", help="Create spatial index on Geometry columns. (SpatiaLite only)", action='store_true')
     parser.add_argument("-H", "--no-header", help="First row is not header.", action="store_true")
     parser.add_argument("file", help="Input file")
     args = parser.parse_args()
@@ -82,6 +112,7 @@ def main():
             f.seek(0)
         header = collections.OrderedDict.fromkeys(columns)
         ids = collections.OrderedDict((x, set()) for x in header if 'id' in x.lower())
+        geom_cols = collections.OrderedDict()
         for row in reader:
             for key, col in zip(header, row):
                 coltype = header[key]
@@ -123,12 +154,30 @@ def main():
                         del ids[key]
                     if re_nonp.search(col):
                         header[key] = 'BLOB'
+                        continue
                     else:
                         try:
                             col.encode('latin1').decode(args.encoding)
-                            header[key] = 'TEXT'
                         except UnicodeDecodeError:
                             header[key] = 'BLOB'
+                            continue
+                    if coltype == 'TEXT':
+                        continue
+                    if args.wkt:
+                        gtype_dimension = check_wkt(col)
+                    else:
+                        header[key] = 'TEXT'
+                        continue
+                    if gtype_dimension[0]:
+                        if coltype == 'GEOM':
+                            if geom_cols[key] != gtype_dimension:
+                                header[key] = 'TEXT'
+                                del geom_cols[key]
+                        else:
+                            header[key] = 'GEOM'
+                            geom_cols[key] = gtype_dimension
+                    else:
+                        header[key] = 'TEXT'
         tablename = os.path.basename(os.path.splitext(fb.name)[0])
         if not tablename.isidentifier():
             tablename = '"%s"' % tablename
@@ -136,7 +185,9 @@ def main():
         result = []
         result.append('CREATE TABLE %s (' % tablename)
         for k, v in header.items():
-            if v is None:
+            if v == 'GEOM':
+                continue
+            elif v is None:
                 v = header[k] = 'TEXT'
             result.append('%s %s%s,' % (
                 k if k.isidentifier() else '"%s"' % k,
@@ -145,10 +196,20 @@ def main():
             ))
         result[-1] = result[-1][:-1]
         result.append(');')
+        for k, v in geom_cols.items():
+            gtype, dimension = v
+            result.append(
+                "SELECT AddGeometryColumn('%s', '%s', 4326, '%s', %r);" %
+                (tablename.strip('"'), k, gtype, dimension)
+            )
+            if args.spindex:
+                result.append("SELECT CreateSpatialIndex('%s', '%s');" %
+                              (tablename.strip('"'), k))
         print('\n'.join(result))
     if not args.insert:
         return
     header_idx = tuple(header.values())
+    header_name_idx = {v:k for k,v in enumerate(header.keys())}
     print(args.begin + ';')
     with open(args.file, 'rb') as fb:
         f = io.TextIOWrapper(fb, encoding='latin1', newline='')
@@ -159,7 +220,9 @@ def main():
             vals = []
             for k, v in enumerate(row):
                 coltype = header_idx[k]
-                if TYPES[coltype] < TYPES['TEXT']:
+                if coltype == 'GEOM':
+                    pass
+                elif TYPES[coltype] < TYPES['GEOM']:
                     if re_null3.match(v):
                         vals.append('null')
                     else:
@@ -169,6 +232,12 @@ def main():
                     # .replace('\r', "'||char(13)||'").replace('\n', "'||char(10)||'"))
                 else:
                     vals.append("X'%s'" % binascii.b2a_hex(v.encode('latin1')).decode('ascii'))
+            for k in geom_cols:
+                v = row[header_name_idx[k]]
+                if re_null3.match(v):
+                    vals.append('null')
+                else:
+                    vals.append("ST_GeomFromText('%s',4326)" % v.replace("'", "''"))
             print('INSERT INTO %s VALUES (%s);' % (
                 tablename, ','.join(vals)))
     print('COMMIT;')
