@@ -21,7 +21,8 @@ ESCAPE_SEQUENCE_RE = re.compile(r'''
     )''', re.UNICODE | re.VERBOSE)
 
 re_float = re.compile(r'^(-?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?|nan|[+-]?inf)$', re.I)
-re_int = re.compile(r'^(0|-?[1-9][0-9]*)$')
+# re_int = re.compile(r'^(0|-?[1-9][0-9]*)$')
+re_int = re.compile(r'^-?[0-9]+$')
 re_null = re.compile(r'^(|null|\\N)$', re.I)
 re_null2 = re.compile(r'^( |-|\.|none|na|n/a)$', re.I)
 re_null3 = re.compile(r'^(|null|\\N| |-|\.|none|na|n/a)$', re.I)
