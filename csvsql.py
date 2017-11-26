@@ -88,6 +88,7 @@ def main():
     parser.add_argument("-t", "--strict", help="When used, exit on bad CSV input.", action='store_true')
     parser.add_argument("-D", "--no-doublequote", help="The escapechar is used as a prefix to the quotechar.", action="store_true")
     parser.add_argument("-c", "--encoding", help="CSV encoding to validate.", default='utf-8')
+    parser.add_argument("-n", "--tablename", help="Table name to import into. (default: filename)")
     parser.add_argument("-i", "--insert", help="Output inserts.", action='store_true')
     parser.add_argument("--begin", help="Command to start a transaction, defaults to BEGIN", default='BEGIN')
     parser.add_argument("--wkt", help="Identify Geometry column (WKT) for SpatiaLite/PostGIS.", action='store_true')
@@ -179,7 +180,7 @@ def main():
                             geom_cols[key] = gtype_dimension
                     else:
                         header[key] = 'TEXT'
-        tablename = os.path.basename(os.path.splitext(fb.name)[0])
+        tablename = args.tablename or os.path.basename(os.path.splitext(fb.name)[0])
         if not tablename.isidentifier():
             tablename = '"%s"' % tablename
         pkey = tuple(ids.keys())[0] if ids else None
