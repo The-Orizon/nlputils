@@ -221,6 +221,8 @@ def main():
         for row in reader:
             vals = []
             for k, v in enumerate(row):
+                if k >= len(header_idx):
+                    continue
                 coltype = header_idx[k]
                 if coltype == 'GEOM':
                     pass
