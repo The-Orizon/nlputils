@@ -26,6 +26,8 @@ re_scriptlink = re.compile(r'<a href="([^"]+)">.+?</a>')
 re_onclick = re.compile(r"(\w+)\('([^']+)'.*\)")
 re_date = re.compile('\d{4}/\d{1,2}/\d{1,2}')
 
+date_fmt = lambda s: '%04d-%02d-%02d' % tuple(map(int, s.split('/')))
+
 class HaodooCrawler:
 
     root = 'http://www.haodoo.net/'
@@ -150,9 +152,9 @@ class HaodooCrawler:
                         font_date.get('size') == '2'):
                         dates = re_date.findall(font_date.get_text())
                         if len(dates) > 0:
-                            add_date = dates[0]
+                            add_date = date_fmt(dates[0])
                         if len(dates) > 1:
-                            upd_date = dates[1]
+                            upd_date = date_fmt(dates[1])
                     if filename:
                         files.append(
                             (filename, ftype, bookid, add_date, upd_date))
@@ -179,7 +181,7 @@ class HaodooCrawler:
     def start(self):
         cur = self.db.cursor()
         if cur.execute('SELECT 1 FROM links LIMIT 1').fetchone():
-            link = self.get_task()
+            link = self.get_task() or '/'
         else:
             link = '/'
         while link:
