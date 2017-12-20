@@ -72,12 +72,13 @@ class HaodooCrawler:
 
     def process_page(self, url, realurl=None):
         r = self.session.get(realurl or urllib.parse.urljoin(self.root, url))
+        r.raise_for_status()
         date = int(time.time())
         try:
             series = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)['P'][0]
         except Exception:
             series = None
-        soup = BeautifulSoup(r.content, 'lxml')
+        soup = BeautifulSoup(r.content, 'html5lib')
         links = []
         for a in soup.find_all('a'):
             l = self.process_href(a.get('href', ''))
