@@ -24,6 +24,7 @@ re_script = re.compile(r'SetTitle\("(.+?)[【《](.+)[》】]"\).+\nSetLink\(\'<
 re_script2 = re.compile(r'(\w+) +書目')
 re_scriptlink = re.compile(r'<a href="([^"]+)">.+?</a>')
 re_onclick = re.compile(r"(\w+)\('([^']+)'.*\)")
+re_date = re.compile('\d{4}/\d{1,2}/\d{1,2}')
 
 class HaodooCrawler:
 
@@ -54,7 +55,9 @@ class HaodooCrawler:
         cur.execute('CREATE TABLE IF NOT EXISTS files ('
             'name TEXT PRIMARY KEY,'
             'type TEXT,'
-            'bookid TEXT'
+            'bookid TEXT,'
+            'add_date TEXT,'
+            'update_date TEXT'
         ')')
 
     def process_href(self, link):
@@ -140,8 +143,18 @@ class HaodooCrawler:
                                 bookid = parameter
                     elif function.startswith('Read'):
                         bookid = parameter
+                    font_date = element.next_sibling
+                    add_date = upd_date = None
+                    if (font_date.name == 'font' and
+                        font_date.get('size') == '2'):
+                        dates = re_date.findall(font_date.get_text())
+                        if len(dates) > 0:
+                            add_date = dates[0]
+                        if len(dates) > 1:
+                            upd_date = dates[1]
                     if filename:
-                        files.append((filename, ftype, bookid))
+                        files.append(
+                            (filename, ftype, bookid, add_date, upd_date))
             if author:
                 books.append((bookid, series, title, author, category))
         return links, books, files, url, date
@@ -154,7 +167,7 @@ class HaodooCrawler:
         for row in books:
             cur.execute('REPLACE INTO books VALUES (?,?,?,?,?)', row)
         for row in files:
-            cur.execute('REPLACE INTO files VALUES (?,?,?)', row)
+            cur.execute('REPLACE INTO files VALUES (?,?,?,?,?)', row)
 
     def get_task(self):
         cur = self.db.cursor()
