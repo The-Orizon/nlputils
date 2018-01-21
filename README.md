@@ -27,7 +27,8 @@ Utility scripts or libraries for various Natural Language Processing tasks.
 * `tatoeba`: convert [tatoeba](https://tatoeba.org/) dumps to a SQLite3 database.
 * `wordfreq.awk`: calculate word frequency.
 * `WWStarClone.py`: clone of WWStar, an ancient Classical Chinese translator.
-* `zhutil.py`: `modelzh.json`: model to detect Classical/Modern Chinese.
+* `zhutil.py`: misc. utils for processing Chinese.
+* `modelzh.json`: model to detect Classical/Modern Chinese.
 
 
 ## License
