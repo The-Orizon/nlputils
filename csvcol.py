@@ -97,8 +97,8 @@ def main():
             io.TextIOWrapper(sys.stdout.buffer, encoding='latin1'),
             dialect, quoting=QUOTING[args.quoting], **out_override)
     else:
-        out_delimeter = out_override.get('delimiter', dialect.delimiter).encode('latin1')
-        out_lineterminator = out_override.get('lineterminator', dialect.lineterminator).encode('latin1')
+        out_delimeter = out_override.get('delimiter', dialect.delimiter)
+        out_lineterminator = out_override.get('lineterminator', dialect.lineterminator)
     for filename in (args.file or ['-']):
         with (open(filename, 'rb') if filename != '-'
               else sys.stdin.buffer) as fb:
@@ -108,7 +108,8 @@ def main():
                 next(reader)
             if args.quoting == 'text':
                 for row in reader:
-                    sys.stdout.buffer.write(out_delimeter.join(fg(row)) + out_lineterminator)
+                    sys.stdout.buffer.write((out_delimeter.join(fg(row)) +
+                        out_lineterminator).encode('latin1'))
             else:
                 for row in reader:
                     writer.writerow(fg(row))
