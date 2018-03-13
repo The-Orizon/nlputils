@@ -90,6 +90,7 @@ def main():
     parser.add_argument("-c", "--encoding", help="CSV encoding to validate.", default='utf-8')
     parser.add_argument("-n", "--tablename", help="Table name to import into. (default: filename)")
     parser.add_argument("-i", "--insert", help="Output inserts.", action='store_true')
+    parser.add_argument("-I", "--insert-only", help="Output inserts without CREATE TABLE statements.", action='store_true')
     parser.add_argument("--begin", help="Command to start a transaction, defaults to BEGIN", default='BEGIN')
     parser.add_argument("--wkt", help="Identify Geometry column (WKT) for SpatiaLite/PostGIS.", action='store_true')
     parser.add_argument("--spindex", help="Create spatial index on Geometry columns. (SpatiaLite only)", action='store_true')
@@ -207,8 +208,9 @@ def main():
             if args.spindex:
                 result.append("SELECT CreateSpatialIndex('%s', '%s');" %
                               (tablename.strip('"'), k))
-        print('\n'.join(result))
-    if not args.insert:
+        if not args.insert_only:
+            print('\n'.join(result))
+    if not (args.insert or args.insert_only):
         return
     header_idx = tuple(header.values())
     header_name_idx = {v:k for k,v in enumerate(header.keys())}
