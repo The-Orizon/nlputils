@@ -89,6 +89,7 @@ def main():
     parser.add_argument("-D", "--no-doublequote", help="The escapechar is used as a prefix to the quotechar.", action="store_true")
     parser.add_argument("-c", "--encoding", help="CSV encoding to validate.", default='utf-8')
     parser.add_argument("-n", "--tablename", help="Table name to import into. (default: filename)")
+    parser.add_argument("-r", "--rowno", help="Add an integer primary key row number column", metavar="COLNAME", nargs="?", default='id')
     parser.add_argument("-i", "--insert", help="Output inserts.", action='store_true')
     parser.add_argument("-I", "--insert-only", help="Output inserts without CREATE TABLE statements.", action='store_true')
     parser.add_argument("--begin", help="Command to start a transaction, defaults to BEGIN", default='BEGIN')
@@ -116,7 +117,7 @@ def main():
         header = collections.OrderedDict.fromkeys(columns)
         ids = collections.OrderedDict((x, set()) for x in header if 'id' in x.lower())
         geom_cols = collections.OrderedDict()
-        for row in reader:
+        for rowcount, row in enumerate(reader, 1):
             for key, col in zip(header, row):
                 coltype = header[key]
                 if re_null.match(col):
@@ -187,6 +188,11 @@ def main():
         pkey = tuple(ids.keys())[0] if ids else None
         result = []
         result.append('CREATE TABLE %s (' % tablename)
+        if args.rowno:
+            result.append('%s %s PRIMARY KEY,' % (
+                args.rowno if args.rowno.isidentifier() else '"%s"' % args.rowno,
+                'BIGINT' if intval > INT_MAX else 'INTEGER'
+            ))
         for k, v in header.items():
             if v == 'GEOM':
                 continue
@@ -195,7 +201,7 @@ def main():
             result.append('%s %s%s,' % (
                 k if k.isidentifier() else '"%s"' % k,
                 v if v != 'DOUBLE' else 'DOUBLE PRECISION',
-                ' PRIMARY KEY' if k == pkey else ''
+                ' PRIMARY KEY' if k == pkey and not args.rowno else ''
             ))
         result[-1] = result[-1][:-1]
         result.append(');')
@@ -220,8 +226,11 @@ def main():
         reader = csv.reader(f, dialect)
         if not args.no_header:
             next(reader)
-        for row in reader:
-            vals = []
+        for rowcount, row in enumerate(reader, 1):
+            if args.rowno:
+                vals = [str(rowcount)]
+            else:
+                vals = []
             for k, v in enumerate(row):
                 if k >= len(header_idx):
                     continue
