@@ -243,7 +243,8 @@ def main():
                     else:
                         vals.append(v)
                 elif coltype == 'TEXT':
-                    vals.append("'%s'" % v.replace("'", "''"))
+                    text = v.encode('latin1').decode(args.encoding)
+                    vals.append("'%s'" % text.replace("'", "''"))
                     # .replace('\r', "'||char(13)||'").replace('\n', "'||char(10)||'"))
                 else:
                     vals.append("X'%s'" % binascii.b2a_hex(v.encode('latin1')).decode('ascii'))
