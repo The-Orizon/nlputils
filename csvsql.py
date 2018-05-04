@@ -131,7 +131,9 @@ def main():
                     if coltype and TYPES[coltype] > TYPES['DECIMAL']:
                         continue
                     intval = int(col)
-                    if intval > BIGINT_MAX or intval < BIGINT_MIN:
+                    if intval != 0 and col.startswith('0'):
+                        dtype = 'TEXT'
+                    elif intval > BIGINT_MAX or intval < BIGINT_MIN:
                         dtype = 'DECIMAL'
                     elif intval > INT_MAX or intval < INT_MIN:
                         dtype = 'BIGINT'
