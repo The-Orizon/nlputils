@@ -21,6 +21,7 @@ Utility scripts or libraries for various Natural Language Processing tasks.
 * `libpinyin_bopomofo.py`: Decorator to use with [python-pinyin](https://github.com/mozillazg/python-pinyin), to convert Pinyin to Bopomofo. (now useless)
 * `ngramfreq.awk`: calculate n-gram character frequency.
 * `num2chinese.py`: convert numbers to Chinese numbers.
+* `phrasecombine.py`: combine splitted words to large phrases given a dictionary.
 * `pwdsort.js`, `zxcvbn.js`: print out password strength according to [zxcvbn](https://github.com/dropbox/zxcvbn).
 * `simpdump.py`: try to find username, email, password and hash from leaked password dumps.
 * `splitrecutfilter.py`: reads stdin, filters non-chinese sentences and cuts sentences and words.
