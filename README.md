@@ -9,6 +9,7 @@ Utility scripts or libraries for various Natural Language Processing tasks.
 * `csvsql.py`: convert csv file to sql definition.
 * `detokenizer.py`: detokenize Chinese text.
 * `dump2db.py`: make a database from leaked password dumps.
+* `epubzhconv.py`: Chinese varient conversion for epub books.
 * `filtermd5.py`: remove md5s not in known list.
 * `findbadlines.py`: find encoding errors in stdin.
 * `gbk_pua.py`: convert PUA codes in GBK to unicode.
