@@ -7,6 +7,7 @@ Utility scripts or libraries for various Natural Language Processing tasks.
 * `convcat.py`: cat files with different encodings together.
 * `csvcol.py`: get specified columns of csv files.
 * `csvsql.py`: convert csv file to sql definition.
+* `dbsort.tcl`: sort SQLite tables in place.
 * `detokenizer.py`: detokenize Chinese text.
 * `dump2db.py`: make a database from leaked password dumps.
 * `epubzhconv.py`: Chinese varient conversion for epub books.
