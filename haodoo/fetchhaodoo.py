@@ -8,6 +8,7 @@ import sqlite3
 import logging
 import requests
 import urllib.parse
+import concurrent.futures
 from bs4 import BeautifulSoup
 
 HEADERS = {
@@ -36,6 +37,7 @@ class HaodooCrawler:
         self.db = sqlite3.connect(db)
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
+        self.executor = concurrent.futures.ThreadPoolExecutor(6)
 
     def init_db(self):
         cur = self.db.cursor()
@@ -75,6 +77,7 @@ class HaodooCrawler:
     def process_page(self, url, realurl=None):
         r = self.session.get(realurl or urllib.parse.urljoin(self.root, url))
         r.raise_for_status()
+        logging.info(url)
         date = int(time.time())
         try:
             series = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)['P'][0]
@@ -172,27 +175,43 @@ class HaodooCrawler:
         for row in files:
             cur.execute('REPLACE INTO files VALUES (?,?,?,?,?)', row)
 
-    def get_task(self):
+    def get_tasks(self):
+        last_time = last_tasks = None
         cur = self.db.cursor()
-        result = cur.execute('SELECT url FROM links WHERE updated IS NULL ORDER BY RANDOM() LIMIT 1').fetchone()
-        if result:
-            return result[0]
+        yield ['/']
+        while 1:
+            tasks = list(x[0] for x in cur.execute('SELECT url FROM links WHERE updated IS NULL ORDER BY RANDOM() LIMIT 100'))
+            remaining = cur.execute("SELECT CAST(count(updated)*100 AS REAL)/count(*), (count(*) - count(updated)) FROM links").fetchone()
+            if tasks:
+                if last_time:
+                    eta = (time.monotonic() - last_time)/last_tasks*remaining[1]
+                    tmin, tsec = divmod(eta, 60)
+                    thour, tmin = divmod(tmin, 60)
+                    etatxt = ', ETA %02d:%02d:%02d' % (thour, tmin, tsec)
+                else:
+                    etatxt = ''
+                logging.info('Progress %.2f%%%s' % (remaining[0], etatxt))
+                last_time = time.monotonic()
+                last_tasks = len(tasks)
+                yield tasks
+            else:
+                return
+
+    def do_fetch(self, link):
+        try:
+            return self.process_page(link)
+        except requests.exceptions.ConnectionError as ex:
+            logging.warning('ConnectionError: ' + link)
+        except Exception:
+            logging.exception('Failed to follow link: ' + link)
 
     def start(self):
         cur = self.db.cursor()
-        if cur.execute('SELECT 1 FROM links LIMIT 1').fetchone():
-            link = self.get_task() or '/'
-        else:
-            link = '/'
-        while link:
-            logging.info(link)
-            try:
-                self.process_result(*self.process_page(link))
-            except requests.exceptions.ConnectionError as ex:
-                logging.warning(ex)
-            except Exception:
-                logging.exception('Failed to follow a link.')
-            link = self.get_task()
+        for tasks in self.get_tasks():
+            for result in self.executor.map(self.do_fetch, tasks):
+                if result:
+                    self.process_result(*result)
+                    self.db.commit()
 
     def __del__(self):
         self.db.commit()
