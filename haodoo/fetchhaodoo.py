@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import re
 import sys
 import time
 import sqlite3
 import logging
-import requests
+import argparse
 import datetime
+import requests
 import urllib.parse
 import concurrent.futures
 import bs4
@@ -36,6 +38,7 @@ re_audiobooktitle = re.compile(r'^(.+)?[【《](.+)[》】](?:（.+）)?(?:(.+)�
 re_audiobookchapter = re.compile(r'^([^【《]*)[【《](.+)[》】](.+)錄音\s*(\d{4}/\d{1,2}/\d{1,2})')
 re_audiobookchapter2 = re.compile(r'^()[【《]?(.+)[》】](.+)錄音\s*(\d{4}/\d{1,2}/\d{1,2})')
 re_recorder = re.compile(r'(\w+)錄音')
+re_attachment_filename = re.compile(r"filename\*?=([^;]+)", re.IGNORECASE)
 
 parse_page = lambda url: urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)['P'][0]
 date_fmt = lambda s: '%04d-%02d-%02d' % tuple(map(int, s.split('/')))
@@ -45,8 +48,10 @@ class HaodooCrawler:
 
     root = 'http://www.haodoo.net/'
 
-    def __init__(self, db='haodoo.db'):
+    def __init__(self, db='haodoo.db', download=None, downloadtypes=None):
         self.db = sqlite3.connect(db)
+        self.download = download
+        self.downloadtypes = downloadtypes
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
         self.executor = concurrent.futures.ThreadPoolExecutor(6)
@@ -86,6 +91,7 @@ class HaodooCrawler:
             'name TEXT PRIMARY KEY,'
             'type TEXT,'
             'bookid TEXT,'
+            'downloadname TEXT,'
             'add_date TEXT,'
             'update_date TEXT'
         ')')
@@ -105,6 +111,16 @@ class HaodooCrawler:
             'recorder TEXT,'
             'add_date TEXT'
         ')')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_books_series '
+            'ON books (series)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_books_title '
+            'ON books (title)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_files_bookid '
+            'ON files (bookid)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_files_downloadname '
+            'ON files (downloadname)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_covers_series '
+            'ON covers (series)')
 
     def process_href(self, link):
         l = link.replace('\r', '').replace('\n', '').split('#')[0]
@@ -333,10 +349,34 @@ class HaodooCrawler:
             modified = int(time.time())
         return 'cover', modified, img, url
 
+    def process_download(self, orignametype):
+        origname, ftype = orignametype.split('|')
+        url = '?M=d&P=' + origname
+        if self.download and ftype in self.downloadtypes:
+            r = self.session.get(urllib.parse.urljoin(self.root, url))
+        else:
+            r = self.session.head(urllib.parse.urljoin(self.root, url))
+        logging.info(url)
+        if r.status_code == 404:
+            name = ''
+            logging.warning('%s 404' % url)
+        else:
+            r.raise_for_status()
+            match = re_attachment_filename.search(r.headers['Content-Disposition'])
+            name = match.group(1).strip().strip('"')
+            if r.content:
+                with open(os.path.join(self.download, name), 'wb') as f:
+                    f.write(r.content)
+        return 'download', name, origname
+
     def process_result(self, result):
         cur = self.db.cursor()
         if result[0] == 'cover':
             cur.execute('UPDATE covers SET modified=?, img=? WHERE filename=?',
+                result[1:])
+            return
+        elif result[0] == 'download':
+            cur.execute('UPDATE files SET downloadname=? WHERE name=?',
                 result[1:])
             return
         if result[0] == 'page':
@@ -370,6 +410,9 @@ class HaodooCrawler:
                 "UNION ALL "
                 "SELECT filename url, 'cover' type FROM covers "
                 "  WHERE modified IS NULL "
+                "UNION ALL "
+                "SELECT (name || '|' || type) url, 'download' type FROM files "
+                "  WHERE downloadname IS NULL"
                 ") q ORDER BY RANDOM() LIMIT 100").fetchall()
             remaining = cur.execute(
                 "SELECT CAST(sum(done)*100 AS REAL)/sum(total), "
@@ -378,6 +421,8 @@ class HaodooCrawler:
                 "  SELECT count(*) total, count(updated) done FROM links "
                 "  UNION ALL "
                 "  SELECT count(*) total, count(modified) done FROM covers"
+                "  UNION ALL "
+                "  SELECT count(*) total, count(downloadname) done FROM files"
                 ") q"
             ).fetchone()
             if tasks:
@@ -400,8 +445,10 @@ class HaodooCrawler:
         try:
             if ltype == 'page':
                 return self.process_page(link)
-            else:
+            elif ltype == 'cover':
                 return self.process_cover(link)
+            else:
+                return self.process_download(link)
         except requests.exceptions.ConnectionError as ex:
             logging.warning('ConnectionError: ' + link)
         except Exception:
@@ -419,7 +466,21 @@ class HaodooCrawler:
         self.db.close()
 
 if __name__ == '__main__':
-    hc = HaodooCrawler(sys.argv[1] if len(sys.argv) > 1 else 'haodoo.db')
+    parser = argparse.ArgumentParser(description="Haodoo.net crawler.")
+    parser.add_argument("-d", "--download", help="Also download books. DIR is the destination directory.", metavar="DIR")
+    parser.add_argument("-t", "--types", help="File type to download, separated by commas, defaults to all. (available: pdb, updb, epub, prc, mobi, vepub, pdf)", metavar="TYPE")
+    parser.add_argument("database", help="Database file, defaults to haodoo.db", nargs='?', default="haodoo.db")
+    args = parser.parse_args()
+    if args.download:
+        if args.types:
+            types = set(args.types.split(','))
+        else:
+            types = set(("epub", "mobi", "prc", "updb", "vepub", "pdb", "pdf"))
+        if not os.path.isdir(args.download):
+            os.mkdir(args.download)
+    else:
+        types = None
+    hc = HaodooCrawler(args.database, args.download, types)
     hc.init_db()
     try:
         hc.start()
