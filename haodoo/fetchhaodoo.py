@@ -60,12 +60,9 @@ class HaodooCrawler:
         cur = self.db.cursor()
         cur.execute('CREATE TABLE IF NOT EXISTS links ('
             'url TEXT PRIMARY KEY,'
-            'updated INTEGER'
+            'updated INTEGER,'
+            'status INTEGER'
         ')')
-        cur.execute(
-            'CREATE INDEX IF NOT EXISTS idx_links '
-            'ON links (updated)'
-        )
         cur.execute('CREATE TABLE IF NOT EXISTS covers ('
             'filename TEXT PRIMARY KEY,'
             'series TEXT,'
@@ -154,7 +151,7 @@ class HaodooCrawler:
                     links.append(l)
         if series and series.startswith('audio') and series != 'audio':
             bookid, title, author, bookrecorder, audiofiles = self.process_audio(series, soup)
-            return 'audio', links, (series, bookid, title, author, bookrecorder), audiofiles, url, date
+            return 'audio', links, (series, bookid, title, author, bookrecorder), audiofiles, url, date, r.status_code
         button = soup.find('input', attrs={"type": "button", "value": "線上閱讀"})
         form = button.parent if button else None
         category = None
@@ -282,7 +279,7 @@ class HaodooCrawler:
                     series, seriestitle or title, seriesauthor or author,
                     category, quality, desc, corr
                 )
-        return 'page', links, seriesdesc, books, files, covers, url, date
+        return 'page', links, seriesdesc, books, files, covers, url, date, r.status_code
 
     def process_audio(self, abookid, soup):
         table = soup.find('table', border='0', cellspacing='0', cellpadding='0', width="530")
@@ -380,7 +377,7 @@ class HaodooCrawler:
                 result[1:])
             return
         if result[0] == 'page':
-            _, links, seriesdesc, books, files, covers, url, date = result
+            _, links, seriesdesc, books, files, covers, url, date, status = result
             if seriesdesc:
                 cur.execute('REPLACE INTO series VALUES (?,?,?,?,?,?,?)', seriesdesc)
             for row in books:
@@ -389,15 +386,16 @@ class HaodooCrawler:
                 cur.execute('INSERT OR IGNORE INTO covers VALUES (?,?,?,?)',
                             row + (None, None))
             for row in files:
-                cur.execute('REPLACE INTO files VALUES (?,?,?,?,?)', row)
+                cur.execute('REPLACE INTO files VALUES (?,?,?,null,?,?)', row)
         elif result[0] == 'audio':
-            _, links, abdesc, audiofiles, url, date = result
+            _, links, abdesc, audiofiles, url, date, status = result
             cur.execute('REPLACE INTO audiobooks VALUES (?,?,?,?,?)', abdesc)
             for row in audiofiles:
                 cur.execute('REPLACE INTO audiofiles VALUES (?,?,?,?,?,?,?)', row)
-        cur.execute('UPDATE links SET updated=? WHERE url=?', (date, url))
+        cur.execute('UPDATE links SET updated=?, status=? WHERE url=?',
+                    (date, status, url))
         for link in links:
-            cur.execute('INSERT OR IGNORE INTO links VALUES (?, ?)', (link, None))
+            cur.execute('INSERT OR IGNORE INTO links VALUES (?,null,null)', (link,))
 
     def get_tasks(self):
         last_time = last_tasks = None
