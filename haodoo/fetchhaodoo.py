@@ -359,11 +359,16 @@ class HaodooCrawler:
             logging.warning('%s 404' % url)
         else:
             r.raise_for_status()
-            match = re_attachment_filename.search(r.headers['Content-Disposition'])
-            name = match.group(1).strip().strip('"')
-            if r.content:
-                with open(os.path.join(self.download, name), 'wb') as f:
-                    f.write(r.content)
+            if 'Content-Disposition' in r.headers:
+                match = re_attachment_filename.search(
+                    r.headers['Content-Disposition'])
+                name = match.group(1).strip().strip('"')
+                if r.content:
+                    with open(os.path.join(self.download, name), 'wb') as f:
+                        f.write(r.content)
+            else:
+                name = ''
+                logging.warning("%s can't download" % url)
         return 'download', name, origname
 
     def process_result(self, result):
