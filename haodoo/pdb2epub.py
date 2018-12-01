@@ -66,7 +66,7 @@ _cnum_map = {
 
 date_conv = lambda s: (lambda m: '%s-%02d-%02d' % (''.join(map(str,
     map(_cnum_map.__getitem__, m.group(1)))),
-    _cnum_map[m.group(2)], _cnum_map[m.group(3)]) if m else None)(
+    _cnum_map[m.group(2)], _cnum_map.get(m.group(3), 1)) if m else None)(
     re_bookdate.search(s))
 
 def content_opf(metadata, chapternum):
@@ -167,7 +167,7 @@ def makehtml(chapternum, title, txt):
         '</head><body>',
     ]
     p = []
-    txt = txt.replace('\r\n', '\n').rstrip() + '\n\n'
+    txt = txt.replace('\r\n', '\n').strip() + '\n\n'
     for para in re_parasplit.split(txt):
         if not para:
             continue
@@ -225,8 +225,8 @@ def makehtml(chapternum, title, txt):
 def pdb2epub(pdbfile, epubfile, haodoodb=None):
     pdb = pdbreader.PdbFile(pdbfile, True)
     metadata = {
-        'title': pdb.title,
-        'author': pdb.author,
+        'title': pdb.title or '',
+        'author': pdb.author or '',
         'uuid': str(uuid.uuid4())
     }
     filename = os.path.basename(pdbfile)
@@ -241,16 +241,18 @@ def pdb2epub(pdbfile, epubfile, haodoodb=None):
             "  coalesce(f.update_date, f.add_date), s.description, c.img "
             "FROM books b "
             "INNER JOIN series s USING (series) "
-            "INNER JOIN covers c USING (series) "
             "INNER JOIN files f ON f.bookid=b.id "
+            "LEFT JOIN covers c USING (series) "
             "WHERE f.type=? AND "
-            "  (f.name=? OR b.series=? OR (b.title=? AND b.author=?)) "
+            "  (f.downloadname=? OR b.series=? OR (b.title=? AND b.author=?)) "
             "ORDER BY c.filename",
             (filetype, filename, filename, pdb.title, pdb.author)
         ).fetchone()
         if dbresult:
             (metadata['id'], metadata['category'], metadata['date'],
              metadata['description'], metadata['img']) = dbresult
+            if metadata['img'] is None:
+                del metadata['img']
     else:
         if re_haodooid.match(fileid):
             metadata['id'] = fileid
