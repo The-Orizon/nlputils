@@ -257,9 +257,9 @@ def pdb2epub(pdbfile, epubfile, haodoodb=None):
     bookdate = date_conv(pdb.text[0])
     if bookdate:
         metadata['date'] = bookdate
-    for k in metadata:
+    for k in tuple(metadata.keys()):
         if metadata[k] is None:
-            del k
+            del metadata[k]
     with zipfile.ZipFile(epubfile, 'w') as zw:
         zw.writestr("mimetype", b"application/epub+zip", zipfile.ZIP_STORED)
         zw.writestr("META-INF/container.xml", EPUB_container_xml)
