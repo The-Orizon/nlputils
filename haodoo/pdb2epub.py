@@ -251,14 +251,15 @@ def pdb2epub(pdbfile, epubfile, haodoodb=None):
         if dbresult:
             (metadata['id'], metadata['category'], metadata['date'],
              metadata['description'], metadata['img']) = dbresult
-            if metadata['img'] is None:
-                del metadata['img']
     else:
         if re_haodooid.match(fileid):
             metadata['id'] = fileid
     bookdate = date_conv(pdb.text[0])
     if bookdate:
         metadata['date'] = bookdate
+    for k in metadata:
+        if metadata[k] is None:
+            del k
     with zipfile.ZipFile(epubfile, 'w') as zw:
         zw.writestr("mimetype", b"application/epub+zip", zipfile.ZIP_STORED)
         zw.writestr("META-INF/container.xml", EPUB_container_xml)
