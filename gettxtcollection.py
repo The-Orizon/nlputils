@@ -7,10 +7,18 @@ import zhconv
 import zhutil
 import argparse
 import multiprocessing
-from chardet.universaldetector import UniversalDetector
+try:
+    from cchardet import UniversalDetector
+except ImportError:
+    from chardet.universaldetector import UniversalDetector
 
 identity = lambda x: x
 empty = lambda x: ''
+
+Locales = {
+    'zh-hant': ('zh-hant', 'zh-tw', 'zh-hk', 'zh'),
+    'zh-hans': ('zh-hans', 'zh-cn', 'zh-sg', 'zh'),
+}
 
 def listfiles(paths):
     for path in paths:
@@ -25,8 +33,8 @@ def convertfunc(s, locale, locale_only):
     if locale:
         simp = zhconv.issimp(s, True)
         if (simp is None
-            or simp and locale in zhconv.Locales['zh-hans']
-            or not simp and locale in zhconv.Locales['zh-hant']):
+            or simp and locale in Locales['zh-hans']
+            or not simp and locale in Locales['zh-hant']):
             return identity
         elif locale_only:
             return empty

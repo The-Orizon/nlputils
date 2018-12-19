@@ -62,3 +62,5 @@ target/
 .ipynb_checkpoints
 
 haodoo/reference/
+rmdup
+*.gcda
