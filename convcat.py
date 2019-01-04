@@ -4,7 +4,10 @@
 import os
 import sys
 import shutil
-from chardet.universaldetector import UniversalDetector
+try:
+    from cchardet import UniversalDetector
+except ImportError:
+    from chardet.universaldetector import UniversalDetector
 
 detector = UniversalDetector()
 
