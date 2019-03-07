@@ -25,6 +25,7 @@ Utility scripts or libraries for various Natural Language Processing tasks.
 * `num2chinese.py`: convert numbers to Chinese numbers.
 * `phrasecombine.py`: combine splitted words to large phrases given a dictionary.
 * `pwdsort.js`, `zxcvbn.js`: print out password strength according to [zxcvbn](https://github.com/dropbox/zxcvbn).
+* `pgexplaindot.py`: output a GraphViz `dot` file for `EXPLAIN (FORMAT JSON)`.
 * `pgviewdep.tcl`: output a GraphViz `dot` file representing view dependencies in a PostgreSQL database.
 * `rmdup.c`: remove duplicate lines without sort (compile with `make`, needs `libxxhash-dev`).
 * `simpdump.py`: try to find username, email, password and hash from leaked password dumps.
