@@ -88,7 +88,7 @@ pg_execute -array d $db {
 } {
   set fromtablename "$d(dependent_schema)__$d(dependent_view)"
   set totablename "$d(source_schema)__$d(source_table)"
-  puts -nonewline "$totablename:$d(column_name) -> $fromtablename:$fromtablename"
+  puts -nonewline "$totablename:\"$d(column_name)\" -> $fromtablename:$fromtablename"
   #puts -nonewline "$totablename:$totablename -> $fromtablename:$fromtablename"
   if {![string equal $currview $fromtablename]} {
     set viewcount [expr $viewcount % 9 + 1]
