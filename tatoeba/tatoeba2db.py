@@ -31,7 +31,7 @@ def stream_tarfile(filename):
 print('Creating schema')
 db = sqlite3.connect('tatoeba.db')
 cur = db.cursor()
-cur.execute('PRAGMA journal_mode=WAL')
+#cur.execute('PRAGMA journal_mode=WAL')
 cur.execute(
     'CREATE TABLE IF NOT EXISTS sentences ('
     'id INTEGER PRIMARY KEY,'

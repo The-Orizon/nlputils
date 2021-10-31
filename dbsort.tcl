@@ -18,12 +18,14 @@ while {$i < $tablenum} {
     set tablename [lindex $argv [expr $i + 1]]
     set orderby [lindex $argv [expr $i + 2]]
     puts "Sorting for $tablename ..."
+    db eval "BEGIN"
     db eval "CREATE TEMP TABLE t_sorted AS
         SELECT * FROM $tablename ORDER BY $orderby"
     db eval "DELETE FROM $tablename"
     puts "Writing back..."
     db eval "INSERT INTO $tablename SELECT * FROM t_sorted"
     db eval "DROP TABLE temp.t_sorted"
+    db eval "COMMIT"
     incr i 2
 }
 puts "Vacuum..."

@@ -64,6 +64,7 @@ def detect_convert(filename):
         return cf(cache)
 
 def detect_convert_str(filename):
+    print(filename, file=sys.stderr)
     return zhutil.fw2hw(detect_convert(filename))
 
 if __name__ == '__main__':
@@ -90,5 +91,5 @@ if __name__ == '__main__':
         wstream = sys.stdout
     files = [fn for fn in listfiles(args.PATH) if fn.endswith('.txt')]
     with wstream:
-        for r in pool.imap_unordered(detect_convert_str, files):
+        for r in pool.imap(detect_convert_str, files, chunksize=10):
             wstream.write(r)
